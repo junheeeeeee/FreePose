@@ -4,7 +4,7 @@ import torch.optim
 import numpy as np
 import math
 from torch.utils import data
-from utils.utils import cycle, p3d_no_scale, rand_position, human_model, get_distance
+from utils.utils import cycle, p3d_no_scale, rand_position, human_model3, get_distance
 from utils.data_val import H36MDataset_temp as ValDataset2
 from utils.data_val import PW3DDataset_temp as ValDataset3
 from utils.data_val import H36MDataset_temp as ValDataset4
@@ -122,18 +122,17 @@ for epoch in range(config.N_epochs):
         rand_num_1[:, 8:32] = cycle(rand_num_1[:, 8:32])
 
 
-        ramdom_p3d = human_model(rand_num)
+        ramdom_p3d = human_model3(rand_num)
         distance = get_distance(ramdom_p3d)
-        ramdom_p3d_0 = human_model(rand_num_0)
+        ramdom_p3d_0 = human_model3(rand_num_0)
 
-        ramdom_p3d_1 = human_model(rand_num_1)
+        ramdom_p3d_1 = human_model3(rand_num_1)
 
         ramdom_p3d, ramdom_p2d, rot, trans = rand_position(ramdom_p3d)
         ramdom_p3d_0, ramdom_p2d_0, _, _ = rand_position(ramdom_p3d_0, rot, trans)
         ramdom_p3d_1, ramdom_p2d_1, _, _ = rand_position(ramdom_p3d_1, rot, trans)
 
         ramdom_p2d_temp = torch.stack([ramdom_p2d_0, ramdom_p2d, ramdom_p2d_1], dim=1).reshape(-1, 3 * 32)
-
 
         pred = model(ramdom_p2d_temp)
 

@@ -180,7 +180,150 @@ def human_model(pred):
     p3d[:, 1] = -pp[:, 2]
     p3d[:, 2] = -pp[:, 1]
     return p3d
+def human_model3(pred):
+    lenth_rate = 10
 
+    pred = pred.unsqueeze(-1)
+
+    len = np.array([0.49108774, 1.80588788, 0.43735805, 0.4342996 , 0.55776042,
+       1.03019458, 0.92972383, 1.63597411, 1.6777138 ]) * 270
+    p = torch.zeros((pred.shape[0], 17, 3)).cuda()
+    x = torch.zeros((pred.shape[0], 3)).cuda() + torch.tensor([1, 0, 0]).cuda()
+    y = torch.zeros((pred.shape[0], 3)).cuda() + torch.tensor([0, 1, 0]).cuda()
+    z = torch.zeros((pred.shape[0], 3)).cuda() + torch.tensor([0, 0, 1]).cuda()
+
+    p[:, 1] = p[:, 1] - x * len[0] * (1 + pred[:, 0] / lenth_rate)
+    p[:, 4] = p[:, 4] + x * len[0] * (1 + pred[:, 0] / lenth_rate)
+
+    p[:, 8] = p[:, 8] + z * len[1] * (1 + pred[:, 1] / lenth_rate)
+
+    head_dot = len[2] * (1 + pred[:, 32] / lenth_rate)
+    head_top = len[3] * (1 + pred[:, 33] / lenth_rate)
+    nose = (head_dot / 2 + head_top / 2) * 7 / 12 * (0.8 + abs(pred[:, 2]) / 5)
+    p[:, 9] = p[:, 8] + y * nose + z * (head_dot ** 2 - nose ** 2) ** 0.5
+    p[:, 10] = p[:, 9] - y * nose + z * (head_top ** 2 - nose ** 2) ** 0.5
+
+    head_rot = rodrigues(z * ((pred[:, 8]) * 45) * torch.pi / 180)
+    head_front = rodrigues(-x * (pred[:, 9] * 60 + 10) * torch.pi / 180)
+    head_side = rodrigues(y * ((pred[:, 10]) * 35) * torch.pi / 180)
+    p[:, 9:11] = torch.transpose(
+        head_front @ head_side @ head_rot @ torch.transpose(p[:, 9:11] - p[:, 8][:, None, :], 1, 2), 1, 2) + p[:, 8][:,
+                                                                                                             None, :]
+
+    shod_l_rot = rodrigues(y * torch.arcsin((pred[:, 11] + 1) * 0.8 / 2))
+    shod_len = (x * len[4] * (1 + pred[:, 3] / 3))[:, :, None]
+    shod_l = shod_l_rot.matmul(shod_len).squeeze(-1)
+    p[:, 11] = p[:, 8] + shod_l
+    shod_r_rot = rodrigues(-y * torch.arcsin((pred[:, 12] + 1) * 0.8 / 2))
+    shod_r = shod_r_rot.matmul(shod_len).squeeze(-1)
+    p[:, 14] = p[:, 8] - shod_r
+
+    p[:, 12] = p[:, 11] - z * len[5] * (1 + pred[:, 4] / lenth_rate)
+    p[:, 15] = p[:, 14] - z * len[5] * (1 + pred[:, 4] / lenth_rate)
+
+    elbow_l_rot = rodrigues(x * (pred[:, 13] + 1) / 2 * 3.14 * 145 / 180)
+
+    elbow_l_rot2 = rodrigues(z * ((pred[:, 14] + 1) / 2 * 150 - 40) * 3.14 / 180)
+
+    elbow_l = (elbow_l_rot2 @ elbow_l_rot).matmul(z[:, :, None]).squeeze(-1)
+    p[:, 13] = p[:, 12] - elbow_l * 251.7 * (1 + pred[:, 5] / 3)
+
+    # side_angel = ((pred[:, 15] + 1) / 2 * 140 - 90)
+    side_angel = ((pred[:, 15] + 1)/ 2 * 190 - 170)
+    front_angel = ((pred[:, 16] + 1) / 2 * 225 - 45)
+    # side_angel = torch.where(abs(front_angel) < 30, -abs(side_angel), side_angel)
+    # side_angel = torch.where(front_angel < 0, (side_angel + 130) * 9 / 19, side_angel)
+    # side_angel = torch.where(front_angel >= 165, side_angel * 0, side_angel)
+    # side_angel = torch.where(abs(front_angel) <= 15, side_angel * 0, side_angel)
+
+    shod_l_side = rodrigues(y * side_angel * 3.14 / 180)
+
+
+    shod_vec = (shod_l_side @ x[:, :, None])[:, :, 0]
+
+    shod_l_front = rodrigues(shod_vec * front_angel * 3.14 / 180)
+
+    p[:, 12:14] = torch.transpose(
+        shod_l_front @ shod_l_side @ torch.transpose(p[:, 12:14] - p[:, 11][:, None, :], 1, 2), 1, 2) + p[:, 11][:,
+                                                                                                        None, :]
+
+
+    elbow_r_rot = rodrigues(x * (pred[:, 17] + 1) / 2 * 3.14 * 145 / 180)
+
+    elbow_r_rot2 = rodrigues(-z * ((pred[:, 18] + 1) / 2 * 150 - 40) * 3.14 / 180)
+
+    elbow_r = (elbow_r_rot2 @ elbow_r_rot).matmul(z[:, :, None]).squeeze(-1)
+    p[:, 16] = p[:, 15] - elbow_r * len[6] * (1 + pred[:, 5] / lenth_rate)
+
+    # side_angel = ((pred[:, 19] + 1) / 2 * 140 - 90)
+    side_angel = ((pred[:, 19] + 1) / 2 * 190 - 170)
+    # side_angel = nonlinear(pred[:, 19], 20, -170)
+
+    front_angel = ((pred[:, 20] + 1) / 2 * 225 - 45)
+    # front_angel = nonlinear(pred[:, 20], 180, -45 )
+    # side_angel = torch.where(front_angel < 40, -abs(side_angel), side_angel)
+    # front_angel = torch.where(side_angel < 0, torch.where(abs(front_angel)<40, front_angel + 20 * front_angel/abs(front_angel), front_angel), front_angel)
+    # exit()
+    # side_angel = torch.where(front_angel < 0, (side_angel + 130) * 9 / 19, side_angel)
+    # side_angel = torch.where(front_angel >= 165, side_angel * 0, side_angel)
+    # side_angel = torch.where(abs(front_angel) <= 15, side_angel * 0, side_angel)
+
+    # shod_r_front = rodrigues(x * front_angel * 3.14 / 180)
+    #
+    # shod_vec = (shod_r_front @ -y[:, :, None])[:, :, 0]
+    #
+    # shod_r_side = rodrigues(shod_vec* side_angel * 3.14 / 180)
+    # p[:, 15:17] = torch.transpose(
+    #   shod_r_side @ shod_r_front @ torch.transpose(p[:, 15:17] - p[:, 14][:, None, :], 1, 2), 1, 2) + p[:, 14][:,
+    #                                                                                                     None, :]
+    shod_r_side = rodrigues(-y * side_angel * 3.14 / 180)
+    shod_vec = (shod_r_side @ x[:, :, None])[:, :, 0]
+    shod_r_front = rodrigues(shod_vec * front_angel * 3.14 / 180)
+    shod_r = rodrigues( -y * side_angel * 3.14 / 180 + x * front_angel * 3.14 / 180)
+
+    # p[:, 15:17] = torch.transpose(
+    #     shod_r @ torch.transpose(p[:, 15:17] - p[:, 14][:, None, :], 1, 2), 1, 2) + p[:, 14][:,
+    #                                                                                                     None, :]
+    p[:, 15:17] = torch.transpose(
+        shod_r_front @ shod_r_side @ torch.transpose(p[:, 15:17] - p[:, 14][:, None, :], 1, 2), 1, 2) + p[:, 14][:,
+                                                                                                        None, :]
+    p[:, 2] = p[:, 1] - z * len[7] * (1 + pred[:, 6] / lenth_rate)
+    p[:, 5] = p[:, 4] - z * len[7] * (1 + pred[:, 6] / lenth_rate)
+    knee_r_rot = rodrigues(-x * (pred[:, 21] + 1) / 2 * torch.pi * 135 / 180)
+    knee_r_rot2 = rodrigues(-z * (pred[:, 22] * 45) * torch.pi / 180)
+    knee_r = knee_r_rot2.matmul(knee_r_rot.matmul(z[:, :, None])).squeeze(-1)
+    p[:, 3] = p[:, 2] - knee_r * len[8] * (1 + pred[:, 7] / lenth_rate)
+    knee_r_side = rodrigues(y * ((pred[:, 23] + 1) / 2 * 70 - 25) * torch.pi / 180)
+
+    knee_r_front = rodrigues(x * ((pred[:, 24] + 1) / 2 * 140 - 30) * torch.pi / 180)
+    p[:, 1:4] = torch.transpose(knee_r_front @ knee_r_side @ torch.transpose(p[:, 1:4] - p[:, 1][:, None, :], 1, 2), 1,
+                                2) + p[:, 1][:, None, :]
+
+    knee_l_rot = rodrigues(-x * (pred[:, 25] + 1) / 2 * torch.pi * 135 / 180)
+    knee_l_rot2 = rodrigues(z * (pred[:, 26] * 45) * torch.pi / 180)
+    knee_l = knee_l_rot2.matmul(knee_l_rot.matmul(z[:, :, None])).squeeze(-1)
+    p[:, 6] = p[:, 5] - knee_l * len[8] * (1 + pred[:, 7] / lenth_rate)
+    knee_l_side = rodrigues(-y * ((pred[:, 27] + 1) / 2 * 70 - 25) * torch.pi / 180)
+    # knee_l_front = rodrigues(x * ((pred[:, 28] + 1) / 2 * 135 - 45) * torch.pi / 180)
+    knee_l_front = rodrigues(x * ((pred[:, 28] + 1) / 2 * 140 - 30) * torch.pi / 180)
+    p[:, 5:7] = torch.transpose(knee_l_front @ knee_l_side @ torch.transpose(p[:, 5:7] - p[:, 4][:, None, :], 1, 2), 1,
+                                2) + p[:, 4][:, None, :]
+
+    spine_rot = rodrigues(z * ((pred[:, 29]) * 30) * torch.pi / 180)
+    spine_front = rodrigues(-x * ((pred[:, 30] + 1) / 2 * 105 - 30) * torch.pi / 180)
+    spine_side = rodrigues(y * ((pred[:, 31]) * 35) * torch.pi / 180)
+    p[:, 7:] = torch.transpose(spine_front @ spine_side @ spine_rot @ torch.transpose(p[:, 7:] * 1, 1, 2), 1, 2)
+    # p[:, :7] = torch.transpose(spine_front @ torch.transpose(p[:, :7] * 1, 1, 2), 1, 2)
+    index = [1, 2, 3, 4, 5, 6, 0, 8, 9, 10, 14, 15, 16, 11, 12, 13]
+    pp = torch.zeros((pred.shape[0], 16, 3)).cuda()
+    for i, j in enumerate(index):
+        pp[:, i] = p[:, j]
+    pp = torch.transpose(pp, 1, 2).reshape(-1, 3, 16)
+    p3d = torch.zeros_like(pp)
+    p3d[:, 0] = pp[:, 0]
+    p3d[:, 1] = -pp[:, 2]
+    p3d[:, 2] = -pp[:, 1]
+    return p3d
 def get_distance(pose):
 
     torso = torch.linalg.norm((pose[:,:,6] - pose[:,:,3]), dim=1) * 0.9
