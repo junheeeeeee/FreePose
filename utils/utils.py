@@ -417,3 +417,28 @@ def cycle(input):
 
     return input
 
+def freepose(batch_size, frame):
+    rand_num = (torch.rand((batch_size, 34), device='cuda') * 2 - 1)
+    ramdom_p3d = human_model3(rand_num)
+    
+    ramdom_p3d, ramdom_p2d, rot, trans = rand_position(ramdom_p3d)
+    rand_tem = ((torch.randn((batch_size, 24), device='cuda')) / 10)
+
+    tem_para = [rand_num * 1]
+    tem_3d = [ramdom_p3d * 1]
+    tem_2d = [ramdom_p2d * 1]
+
+    for i in range(frame -1):
+        rand_num[:, 8:32] += rand_tem
+        rand_num[:, 8:32] = cycle(rand_num[:, 8:32])
+        tem_para.append(rand_num * 1)
+        ramdom_p3d = human_model3(rand_num)
+        ramdom_p3d, ramdom_p2d, _, _ = rand_position(ramdom_p3d, rot, trans)
+        tem_3d.append(ramdom_p3d)
+        tem_2d.append(ramdom_p2d)
+    
+    tem_2d = torch.stack(tem_2d, dim=1).reshape(-1, 3 * 32)
+    p3d = tem_3d[int(frame/2)]
+    distance = get_distance(p3d) 
+
+    return p3d, tem_2d, distance

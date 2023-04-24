@@ -4,7 +4,7 @@ import torch.optim
 import numpy as np
 import math
 from torch.utils import data
-from utils.utils import cycle, p3d_no_scale, rand_position, human_model3, get_distance
+from utils.utils import cycle, p3d_no_scale, rand_position, human_model3, get_distance, freepose
 from utils.data_val import H36MDataset_temp as ValDataset2
 from utils.data_val import PW3DDataset_temp as ValDataset3
 from utils.data_val import H36MDataset_temp as ValDataset4
@@ -108,32 +108,8 @@ for epoch in range(config.N_epochs):
     for i in range(config.data_size):
         ii = epoch * config.data_size + i
 
-        rand_num = (torch.rand((config.BATCH_SIZE, 34), device='cuda') * 2 - 1)
-
-
-        rand_num_0 = rand_num * 1
-        rand_num_1 = rand_num * 1
-        rand_tem = ((torch.randn((config.BATCH_SIZE, 24), device='cuda')) / 10)
-        rand_num_0[:, 8:32] += rand_tem
-        rand_num_0[:, 8:32] = cycle(rand_num_0[:, 8:32])
-
-        rand_tem = ((torch.randn((config.BATCH_SIZE, 24), device='cuda')) / 10)
-        rand_num_1[:, 8:32] += rand_tem
-        rand_num_1[:, 8:32] = cycle(rand_num_1[:, 8:32])
-
-
-        ramdom_p3d = human_model3(rand_num)
-        distance = get_distance(ramdom_p3d)
-        ramdom_p3d_0 = human_model3(rand_num_0)
-
-        ramdom_p3d_1 = human_model3(rand_num_1)
-
-        ramdom_p3d, ramdom_p2d, rot, trans = rand_position(ramdom_p3d)
-        ramdom_p3d_0, ramdom_p2d_0, _, _ = rand_position(ramdom_p3d_0, rot, trans)
-        ramdom_p3d_1, ramdom_p2d_1, _, _ = rand_position(ramdom_p3d_1, rot, trans)
-
-        ramdom_p2d_temp = torch.stack([ramdom_p2d_0, ramdom_p2d, ramdom_p2d_1], dim=1).reshape(-1, 3 * 32)
-
+        ramdom_p3d, ramdom_p2d_temp, distance = freepose(config.BATCH_SIZE, 3)
+     
         pred = model(ramdom_p2d_temp)
 
         losses.p3d = mse_loss( p3d_no_scale(pred[0].reshape(-1, 3, 16)) , p3d_no_scale(
