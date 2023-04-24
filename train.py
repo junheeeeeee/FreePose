@@ -9,7 +9,7 @@ from utils.data_val import H36MDataset_temp as ValDataset2
 from utils.data_val import PW3DDataset_temp as ValDataset3
 from utils.data_val import H36MDataset_temp as ValDataset4
 import torch.optim as optim
-import model_confidences
+import model.model_confidences as model_confidences
 from types import SimpleNamespace
 from numpy.random import default_rng
 import cv2
