@@ -14,7 +14,8 @@ from types import SimpleNamespace
 from numpy.random import default_rng
 import cv2
 from utils.evaluate import PCK_3d, accuracy_3d, p_mpjpe, Metrics
-
+from utils.config import get_parse_args
+from utils.model_train import train_free
 import os
 
 
@@ -102,43 +103,44 @@ multi_3d = AverageMeter()
 
 H36M_P_mpj3d = AverageMeter()
 
-
+args = get_parse_args()
 for epoch in range(config.N_epochs):
 
-    for i in range(config.data_size):
-        ii = epoch * config.data_size + i
+    train_free(model, mse_loss, optimizer, args, losses)
+    # for i in range(config.data_size):
+    #     ii = epoch * config.data_size + i
 
-        ramdom_p3d, ramdom_p2d_temp, distance = freepose(config.BATCH_SIZE, 3)
+    #     ramdom_p3d, ramdom_p2d_temp, distance = freepose(config.BATCH_SIZE, 3)
      
-        pred = model(ramdom_p2d_temp)
+    #     pred = model(ramdom_p2d_temp)
 
-        losses.p3d = mse_loss( p3d_no_scale(pred[0].reshape(-1, 3, 16)) , p3d_no_scale(
-            ramdom_p3d.reshape(-1, 3, 16) - ramdom_p3d.reshape(-1, 3, 16)[:, :, 6][:, :, None]))
-        losses.p3d = (losses.p3d.sum(1) ** 0.5 * distance).mean()
+    #     losses.p3d = mse_loss( p3d_no_scale(pred[0].reshape(-1, 3, 16)) , p3d_no_scale(
+    #         ramdom_p3d.reshape(-1, 3, 16) - ramdom_p3d.reshape(-1, 3, 16)[:, :, 6][:, :, None]))
+    #     losses.p3d = (losses.p3d.sum(1) ** 0.5 * distance).mean()
 
-        losses.loss = losses.p3d
-        optimizer.zero_grad()
-        losses.loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm)
-        optimizer.step()
+    #     losses.loss = losses.p3d
+    #     optimizer.zero_grad()
+    #     losses.loss.backward()
+    #     torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm)
+    #     optimizer.step()
 
-        with torch.no_grad():
+    #     with torch.no_grad():
 
-            annot_p3d = (ramdom_p3d.reshape(-1, 3, 16)).permute(0, 2, 1).detach().cpu().numpy()
+    #         annot_p3d = (ramdom_p3d.reshape(-1, 3, 16)).permute(0, 2, 1).detach().cpu().numpy()
 
-            pred_p3d = pred[0].reshape(-1, 3, 16).permute(0, 2, 1).detach().cpu().numpy()
-            pred_p3d -= pred_p3d.mean(1)[:, None, :]
-            annot_p3d -= annot_p3d.mean(1)[:, None, :]
+    #         pred_p3d = pred[0].reshape(-1, 3, 16).permute(0, 2, 1).detach().cpu().numpy()
+    #         pred_p3d -= pred_p3d.mean(1)[:, None, :]
+    #         annot_p3d -= annot_p3d.mean(1)[:, None, :]
 
-            pck, a3d = PCK_3d(pred_p3d, annot_p3d)
-            ac_3d.update(a3d.mean(), ramdom_p3d.size(0))
+    #         pck, a3d = PCK_3d(pred_p3d, annot_p3d)
+    #         ac_3d.update(a3d.mean(), ramdom_p3d.size(0))
 
-        losses.mpj3d = ac_3d.avg
+    #     losses.mpj3d = ac_3d.avg
 
 
 
-    ac_2d.reset()
-    ac_3d.reset()
+    # ac_2d.reset()
+    # ac_3d.reset()
 
 
     with torch.no_grad():
