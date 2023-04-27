@@ -11,8 +11,7 @@ from types import SimpleNamespace
 from utils.config import get_parse_args
 from utils.model_train import train_free
 from utils.model_eval import evaluation
-from models.mhformer import MH_6d
-from models.mhformer import MH3d_6d
+from models.mhformer import MH_6d, MH3d_6d, MH6d_6d
 import os
 
 
@@ -21,21 +20,21 @@ def main(args):
     print('==> Using settings {}'.format(args))
 
     print('==> Loading dataset...')
-    if args.h36m:
+    if args.eval_h36m:
         h36m_dataset = H36MDataset_temp(normalize_2d=True, frame_size= args.frame_size)
         h36m_loader = data.DataLoader(h36m_dataset, batch_size=2048, shuffle=False, num_workers=args.num_workers)
         best_H = 300
 
-    if args.h36mp:
+    if args.eval_h36mp:
         h36mp_dataset = H36MDataset_temp(gt = False, normalize_2d=True, frame_size= args.frame_size)
         h36mp_loader = data.DataLoader(h36mp_dataset, batch_size=2048, shuffle=False, num_workers= args.num_workers)
         best_Hp = 300
 
-    if args.hp3d:
+    if args.eval_hp3d:
         pass
         best_3dhp = 300
 
-    if args.pw3d:
+    if args.eval_pw3d:
         pw3d_dataset = PW3DDataset_temp(normalize_2d = True, frame_size= args.frame_size)
         pw3d_loader = data.DataLoader(pw3d_dataset, batch_size=2048, shuffle=False, num_workers= args.num_workers)
         best_3dpw = 300
@@ -48,6 +47,8 @@ def main(args):
         model = MH_6d(args.frame_size).cuda()
     elif args.posenet_name == "mh3d":
         model = MH3d_6d(args.frame_size).cuda()
+    elif args.posenet_name == "mh6d":
+        model = MH6d_6d(args.frame_size).cuda()
     else:
         print("nono")
         exit()
@@ -61,7 +62,7 @@ def main(args):
         train_free(model, criterion, optimizer, args, losses)
 
 
-        if args.h36m:
+        if args.eval_h36m:
             H36M_mpj3d, H36M_P_mpj3d, H36M_pck_3d = evaluation(h36m_loader, model, args)
 
             msg = 'H36M :\t' \
@@ -76,7 +77,7 @@ def main(args):
                 torch.save(model, f'output/model_lifter_single_H36M_{best_H}.pt')
                 print('save_best')
                 
-        if args.h36mp:
+        if args.eval_h36mp:
             H36M_mpj3d, H36M_P_mpj3d, H36M_pck_3d = evaluation(h36mp_loader, model, args)
 
             msg = 'H36Mp :\t' \
@@ -91,7 +92,7 @@ def main(args):
                 torch.save(model, f'output/model_lifter_single_H36Mpred_{best_Hp}.pt')
                 print('save_best')
 
-        if args.pw3d:
+        if args.eval_pw3d:
             H36M_mpj3d, H36M_P_mpj3d, H36M_pck_3d = evaluation(pw3d_loader, model, args)
         
 

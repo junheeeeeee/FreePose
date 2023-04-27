@@ -25,18 +25,23 @@ class AverageMeter(object):
 
 
 def train_free(model, criterion, optimizer,args, losses, max_norm=True):
-
     ac_3d = AverageMeter()
-    model.train()
+    model.train()       
+
+    p3d, p2d_temp, distance = freepose(args.batch_size * args.data_size, args.frame_size)
+    p3d = p3d.reshape(args.batch_size, args.data_size, -1)
+    p2d_temp = p2d_temp.reshape(args.batch_size, args.data_size, -1)
+    distance = distance.reshape(args.batch_size, args.data_size, -1)
+
     for i in range(args.data_size):
-        ramdom_p3d, ramdom_p2d_temp, distance = freepose(args.batch_size, args.frame_size)
+        ramdom_p3d, ramdom_p2d_temp = p3d[:,i], p2d_temp[:,i]
 
         ## input_shape (batch_size, frame_size * 2 * joints_num)
         pred = model(ramdom_p2d_temp)
 
         losses.p3d = criterion( p3d_no_scale(pred[0].reshape(-1, 3, 16)) , p3d_no_scale(
             ramdom_p3d.reshape(-1, 3, 16) - ramdom_p3d.reshape(-1, 3, 16)[:, :, 6][:, :, None]))
-        losses.p3d = ((losses.p3d.sum(1) + 1e-9) ** 0.5 * distance).mean()
+        losses.p3d = ((losses.p3d.sum(1) + 1e-9) ** 0.5 * distance[:, i]).mean()
         losses.loss = losses.p3d
         optimizer.zero_grad()
         losses.loss.backward()
