@@ -268,10 +268,11 @@ class Lifter_video(nn.Module):
         return [pose , pose]
 
 class Lifter_non_3d(nn.Module):
-    def __init__(self):
-        super(Lifter_non_3d, self).__init__()
+    def __init__(self, frame):
+        super().__init__()
+        self.n_joints = 16
 
-        self.upscale = nn.Linear(32*3, 1024)
+        self.upscale = nn.Linear(frame * 2 * self.n_joints, 1024)
         self.res_pose0 = res_block()
 
         self.res_pose1 = res_block()
@@ -289,7 +290,7 @@ class Lifter_non_3d(nn.Module):
 
     def forward(self, p2d):
 
-
+        
         x = self.upscale(p2d)
         x = nn.LeakyReLU()(self.res_pose0(x))
 

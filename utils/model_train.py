@@ -27,7 +27,7 @@ class AverageMeter(object):
 def train_free(model, criterion, optimizer,args, losses, max_norm=True):
 
     ac_3d = AverageMeter()
-
+    model.train()
     for i in range(args.data_size):
         ramdom_p3d, ramdom_p2d_temp, distance = freepose(args.batch_size, args.frame_size)
 
@@ -36,8 +36,7 @@ def train_free(model, criterion, optimizer,args, losses, max_norm=True):
 
         losses.p3d = criterion( p3d_no_scale(pred[0].reshape(-1, 3, 16)) , p3d_no_scale(
             ramdom_p3d.reshape(-1, 3, 16) - ramdom_p3d.reshape(-1, 3, 16)[:, :, 6][:, :, None]))
-        losses.p3d = (losses.p3d.sum(1) ** 0.5 * distance).mean()
-
+        losses.p3d = ((losses.p3d.sum(1) + 1e-9) ** 0.5 * distance).mean()
         losses.loss = losses.p3d
         optimizer.zero_grad()
         losses.loss.backward()

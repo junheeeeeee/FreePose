@@ -200,12 +200,17 @@ class H36MDataset_temp(Dataset):
     def __init__(self, gt = True, normalize_2d=True, frame_size = 3):
         data_folder = './data/'
         if gt:
-            fname = data_folder + 'h36m_gt_test.pkl'
+            fname = data_folder + 'h36m_p2d_gt.pkl'
         else:
-            fname = data_folder + 'h36m_hr_test.pkl'
+            fname = data_folder + 'h36m_p2d_hr.pkl'
 
         pickle_off = open(fname, "rb")
-        self.data = pickle.load(pickle_off)
+        self.data_p2d = pickle.load(pickle_off)
+
+        fname = data_folder + 'h36m_p3d.pkl'
+        pickle_off = open(fname, "rb")
+        self.data_p3d = pickle.load(pickle_off)
+        self.data = get_temp_frame(frame_size, self.data_p2d, self.data_p3d)
         # index = [1, 2, 3, 4, 5, 6, 0, 8, 9, 10, 14, 15, 16, 11, 12, 13]
 
         self.data[0] = np.transpose(self.data[0],(0,1,3,2))
@@ -272,9 +277,9 @@ class H36MDataset_temp_pred(Dataset):
 
 
 class PW3DDataset_temp(Dataset):
-    """Human3.6M dataset including images."""
+   
 
-    def __init__(self, normalize_2d=True):
+    def __init__(self, normalize_2d=True, frame_size = 3):
         data_folder = './data/'
         fname= data_folder + '3dpw_test.pkl'
         pickle_off = open(fname, "rb")
@@ -285,7 +290,7 @@ class PW3DDataset_temp(Dataset):
         # self.data = []
         # self.data.append(np.array(self.dataset['positions_2d'])[:,index] * 512)
         # self.data.append(np.array(self.dataset['positions_3d'])[:, index] * 1000)
-
+        self.frame_size = frame_size
         self.data[0] = np.transpose(self.data[0],(0,2,1))
         self.data[1] = np.transpose(self.data[1], (0, 2, 1))
 
@@ -300,33 +305,19 @@ class PW3DDataset_temp(Dataset):
     def __getitem__(self, idx):
         if torch.is_tensor(idx):
             idx = idx.tolist()
-        idx -= 1
-        # try:
-        #     if self.data[2][idx+ 1].sum() != self.data[2][idx].sum() or self.data[2][idx+ 1].sum() != self.data[2][idx +2].sum():
-        #         p2d_0 = self.data[0][idx + 1].reshape(32)
-        #         p2d_1 = self.data[0][idx + 1].reshape(32)
-        #         p2d_2 = self.data[0][idx + 1].reshape(32)
-        #     else:
-        #         p2d_0 = self.data[0][idx].reshape(32)
-        #         p2d_1 = self.data[0][idx+1].reshape(32)
-        #         p2d_2 = self.data[0][idx + 2].reshape(32)
-        # except:
-        #     p2d_0 = self.data[0][idx + 1].reshape(32)
-        #     p2d_1 = self.data[0][idx + 1].reshape(32)
-        #     p2d_2 = self.data[0][idx + 1].reshape(32)
+        
         try:
-            p2d_0 = self.data[0][idx].reshape(32)
-            p2d_1 = self.data[0][idx+1].reshape(32)
-            p2d_2 = self.data[0][idx + 2].reshape(32)
+            p2d = []
+            for i in range(self.frame_size):
+                p2d.append(self.data[0][idx + i - int(self.frame_size/2)].reshape(32))
 
         except:
-            p2d_0 = self.data[0][idx + 1].reshape(32)
-            p2d_1 = self.data[0][idx + 1].reshape(32)
-            p2d_2 = self.data[0][idx + 1].reshape(32)
+            p2d = []
+            for i in range(self.frame_size):
+                p2d.append(self.data[0][idx].reshape(32))
 
-        p2d = np.stack([p2d_0, p2d_1, p2d_2], axis=0)
-
-        p3d = self.data[1][idx+1]
+        p2d = np.stack(p2d, axis=0)
+        p3d = self.data[1][idx]
         confidences = np.ones(16)
 
         sample = [p2d,confidences,p3d]

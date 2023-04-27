@@ -73,7 +73,6 @@ class Transformer(nn.Module):
         attn_drop_rate = 0.
         qkv_bias = True
         qk_scale = None
-
         norm_layer = partial(nn.LayerNorm, eps=1e-6)
 
         self.pos_embed = nn.Parameter(torch.zeros(1, length, embed_dim))
@@ -92,7 +91,6 @@ class Transformer(nn.Module):
     def forward(self, x):
         x += self.pos_embed
         x = self.pos_drop(x)
-
         for blk in self.blocks:
             x = blk(x)
 

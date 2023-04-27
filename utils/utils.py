@@ -2,6 +2,24 @@ import torch
 from pytorch3d.transforms import so3_exponential_map as rodrigues
 import numpy as np
 
+class AverageMeter(object):
+    """Computes and stores the average and current value"""
+
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self.val = 0
+        self.avg = 0
+        self.sum = 0
+        self.count = 0
+
+    def update(self, val, n=1):
+        self.val = val
+        self.sum += val * n
+        self.count += n
+        self.avg = self.sum / self.count if self.count != 0 else 0
+
 def p3d_no_scale(p3d):
     p3d = p3d.reshape(-1, 3, 16)
     hey = p3d * 1
@@ -437,7 +455,7 @@ def freepose(batch_size, frame):
         tem_3d.append(ramdom_p3d)
         tem_2d.append(ramdom_p2d)
     
-    tem_2d = torch.stack(tem_2d, dim=1).reshape(-1, 3 * 32)
+    tem_2d = torch.stack(tem_2d, dim=1).reshape(-1, frame * 32)
     p3d = tem_3d[int(frame/2)]
     distance = get_distance(p3d) 
 
