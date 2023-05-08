@@ -13,7 +13,9 @@ from utils.model_train import train_free
 from utils.model_eval import evaluation
 from models.mhformer import MH_6d, MH3d_6d, MH6d_6d
 import os
+from time import localtime, time, strftime
 
+from torch.utils.tensorboard import SummaryWriter
 
 def main(args):
     losses = SimpleNamespace()
@@ -57,6 +59,10 @@ def main(args):
     params = list(model.parameters())
     optimizer = optim.Adam(params, lr=args.lr)
 
+    tm = localtime(time())
+    writer = SummaryWriter(f"logs/{tm.tm_year}-{tm.tm_mon.zfill(2)}-{tm.tm_mday.zfill(2)}_{tm.tm_hour.zfill(2)}-{tm.tm_min.zfill(2)}-{tm.tm_sec.zfill(2)}\
+_FreePose_Posenet={args.posenet_name}_frame_size={args.frame_size}_lr={args.lr}_batch_size={args.batch_size}")
+
     for epoch in range(args.epochs):
         print(f"Epoch {epoch + 1}")
         train_free(model, criterion, optimizer, args, losses)
@@ -69,7 +75,8 @@ def main(args):
                 'n-mpjpe {acc.avg:.1f}mm\t' \
                 'P_mpjpe {pck.avg:.1f}mm'.format(acc=H36M_mpj3d, pck=H36M_P_mpj3d)
             print(msg)
-
+            writer.add_scalar("Eval/H36M_nmpj3d", H36M_mpj3d.avg, epoch)
+            writer.add_scalar("Eval/H36M_pmpj3d", H36M_P_mpj3d.avg, epoch)
             if best_H > H36M_mpj3d.avg:
                 if os.path.isfile(f'output/model_lifter_single_H36M_{best_H}.pt'):
                     os.remove(f'output/model_lifter_single_H36M_{best_H}.pt')
@@ -84,13 +91,14 @@ def main(args):
                 'n-mpjpe {acc.avg:.1f}mm\t' \
                 'P_mpjpe {pck.avg:.1f}mm'.format(acc=H36M_mpj3d, pck=H36M_P_mpj3d)
             print(msg)
-
+            writer.add_scalar("Eval/H36Mp_nmpj3d", H36M_mpj3d.avg, epoch)
+            writer.add_scalar("Eval/H36Mp_pmpj3d", H36M_P_mpj3d.avg, epoch)
             if best_Hp > H36M_mpj3d.avg:
                 if os.path.isfile(f'output/model_lifter_single_H36Mpred_{best_Hp}.pt'):
                     os.remove(f'output/model_lifter_single_H36Mpred_{best_Hp}.pt')
                 best_Hp = H36M_mpj3d.avg
                 torch.save(model, f'output/model_lifter_single_H36Mpred_{best_Hp}.pt')
-                print('save_best')
+                print('save_bs')
 
         if args.eval_pw3d:
             H36M_mpj3d, H36M_P_mpj3d, H36M_pck_3d = evaluation(pw3d_loader, model, args)
@@ -101,7 +109,8 @@ def main(args):
                 'P_mpjpe {pck.avg:.1f}mm'.format(acc=H36M_mpj3d, pck=H36M_P_mpj3d)
 
             print(msg)
-
+            writer.add_scalar("Eval/3DPW_nmpj3d", H36M_mpj3d.avg, epoch)
+            writer.add_scalar("Eval/3DPW_pmpj3d", H36M_P_mpj3d.avg, epoch)
 
             if best_3dpw > H36M_mpj3d.avg:
                 if os.path.isfile(f'output/model_lifter_single_3DPW_{best_3dpw}.pt'):
